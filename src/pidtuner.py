@@ -24,9 +24,25 @@ global v
 global kubid
 global expectedTraverseTime
 global start
-global pso
-global errorInfo
+# global pso
+# global errorInfo
 global target
+pso = PSO(5,20,1000,1,1,0.5)
+errorInfo = Error()
+cornerA = point_2d()
+cornerB = point_2d()
+cornerC = point_2d()
+cornerD = point_2d()
+cornerA.x = 2500
+cornerA.y = -1500
+cornerB.x = 2500
+cornerB.y = 1500
+cornerC.x = -2500
+cornerC.y = 1500
+cornerD.x = -2500
+cornerD.y = -1500
+corner = [cornerA,cornerB,cornerC,cornerD]
+lastcorner = 0
 
 def shouldReplan():
 	global homePos,awayPos,kubid
@@ -70,12 +86,12 @@ def Callback(data):
 	final_command = gr_Commands()
 	distance = sqrt(pow(target.x - homePos[kubid].x,2) + pow(target.y - homePos[kubid].y,2))
 	
-	if distance < BOT_BALL_THRESH:
-		vX,vY,eX,eY = 0,0,0,0
-		errorInfo.errorIX = 0.0
-		errorInfo.errorIY = 0.0
-		errorInfo.lastErrorX = 0.0
-		errorInfo.lastErrorY = 0.0
+	# if distance < BOT_BALL_THRESH:
+	# 	vX,vY,eX,eY = 0,0,0,0
+	# 	errorInfo.errorIX = 0.0
+	# 	errorInfo.errorIY = 0.0
+	# 	errorInfo.lastErrorX = 0.0
+	# 	errorInfo.lastErrorY = 0.0
 	if (t - start< expectedTraverseTime):
 		if v.trapezoid(t - start,curPos):
 			index = v.GetExpectedPositionIndex()
@@ -157,8 +173,6 @@ def findPath(startPoint,end):
 	v = Velocity(path,start,startPt)
 	v.updateAngle()
 	expectedTraverseTime = v.getTime(v.GetPathLength())
-	pso = PSO(5,20,1000,1,1,0.5)
-	errorInfo = Error()
 	print("Path Planned")
 
 
@@ -176,10 +190,10 @@ if __name__ == "__main__":
 	startPt = point_2d()
 	target = point_2d()
 	print("Enter starting")
-	startPt.x = -2000
-	startPt.y = -1700
-	target.x = 1000
-	target.y = 1200
+	startPt.x = -2500
+	startPt.y = -1500
+	target.x = 2500
+	target.y = -1500
 	findPath(startPt,target)
 	rospy.Subscriber('/belief_state', BeliefState, Callback, queue_size=1000)
 	rospy.spin()
