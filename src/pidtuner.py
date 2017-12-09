@@ -16,18 +16,33 @@ from pid import pid
 from pso import PSO
 from error import Error
 
-FLAG_PATH_RECEIVED = 0
-homePos = None
-awayPos = None
+global homePos
+global awayPos
 homePos = []
 awayPos = []
-v = None
-kubid = None
-expectedTraverseTime = None
-start = None
-pso = None
+global v
+global kubid
+global expectedTraverseTime
+global start
+# global pso
+# global errorInfo
+global target
+pso = PSO(5,20,1000,1,1,0.5)
 errorInfo = Error()
-target = None
+cornerA = point_2d()
+cornerB = point_2d()
+cornerC = point_2d()
+cornerD = point_2d()
+cornerA.x = 2500
+cornerA.y = -1500
+cornerB.x = 2500
+cornerB.y = 1500
+cornerC.x = -2500
+cornerC.y = 1500
+cornerD.x = -2500
+cornerD.y = -1500
+corner = [cornerA,cornerB,cornerC,cornerD]
+lastcorner = 0
 
 def shouldReplan():
 	global homePos,awayPos,kubid
@@ -57,10 +72,6 @@ def shouldReplan():
 def Callback(data):
 	# print "."
 	flag = 0
-	# print("FLAG_PATH_RECEIVED = ",FLAG_PATH_RECEIVED)
-	# if(not FLAG_PATH_RECEIVED):
-	# 	return
-
 	global homePos
 	global awayPos
 	global expectedTraverseTime,kubid
@@ -69,36 +80,18 @@ def Callback(data):
 	homePos = data.homePos
 	awayPos = data.awayPos
 	t = rospy.Time.now()
-	# print("BOT_BALL_THRESH = ",BOT_BALL_THRESH)
 	t = t.secs + 1.0*t.nsecs/pow(10,9)
 	curPos = Vector2D(int(homePos[kubid].x),int(homePos[kubid].y))
 	command_msgs = gr_Robot_Command()
 	final_command = gr_Commands()
 	distance = sqrt(pow(target.x - homePos[kubid].x,2) + pow(target.y - homePos[kubid].y,2))
 	
-	if distance < 5*BOT_BALL_THRESH:
-		vX,vY,eX,eY = 0,0,0,0
-		errorInfo.errorIX = 0.0
-		errorInfo.errorIY = 0.0
-		errorInfo.lastErrorX = 0.0
-		errorInfo.lastErrorY = 0.0
-		command_msgs.id          = kubid
-		command_msgs.wheelsspeed = 0
-		command_msgs.veltangent  = 0
-		command_msgs.velnormal = 0
-		command_msgs.velangular = 0
-		command_msgs.kickspeedx  = 0
-		command_msgs.kickspeedz  = 0
-		command_msgs.spinner     = 0
-
-		final_command.timestamp      = rospy.get_rostime().secs
-		final_command.isteamyellow   = False
-		final_command.robot_commands = command_msgs
-		pub.publish(final_command)
-		return
-	# print("here t-start - ",t-start)
-	# print("here expectedTraverseTime = ", expectedTraverseTime)	
-	# print("condition = ", (t-start)<expectedTraverseTime)
+	# if distance < BOT_BALL_THRESH:
+	# 	vX,vY,eX,eY = 0,0,0,0
+	# 	errorInfo.errorIX = 0.0
+	# 	errorInfo.errorIY = 0.0
+	# 	errorInfo.lastErrorX = 0.0
+	# 	errorInfo.lastErrorY = 0.0
 	if (t - start< expectedTraverseTime):
 		if v.trapezoid(t - start,curPos):
 			index = v.GetExpectedPositionIndex()
@@ -117,18 +110,12 @@ def Callback(data):
 			vX,vY,eX,eY = 0,0,0,0
 			flag = 1
 	else:
-		print("TimeOUT, REPLANNING")
+		print("TimeOUT")
 		vX,vY,eX,eY = 0,0,0,0
 		errorInfo.errorIX = 0.0
 		errorInfo.errorIY = 0.0
 		errorInfo.lastErrorX = 0.0
 		errorInfo.lastErrorY = 0.0
-		startPt = point_2d()
-		startPt.x = homePos[kubid].x
-		startPt.y = homePos[kubid].y
-		findPath(startPt,target)
-		start = rospy.Time.now()
-		start = 1.0*start.secs + 1.0*start.nsecs/pow(10,9)
 	errorMag = sqrt(pow(eX,2) + pow(eY,2))
 	if  shouldReplan() or \
 		(errorMag > 350 and distance > 2* BOT_BALL_THRESH) or \
@@ -139,8 +126,7 @@ def Callback(data):
 			startPt.x = homePos[kubid].x
 			startPt.y = homePos[kubid].y
 			findPath(startPt,target)
-			start = rospy.Time.now()
-			start = 1.0*start.secs + 1.0*start.nsecs/pow(10,9)
+		
 	else:
 		errorInfo.errorX = eX
 		errorInfo.errorY = eY
@@ -163,8 +149,6 @@ def Callback(data):
 		pub.publish(final_command)
 
 def findPath(startPoint,end):
-	global FLAG_PATH_RECEIVED
-	FLAG_PATH_RECEIVED = 1
 	global v,expectedTraverseTime,kubid
 	global start,target
 	global pso,errorInfo
@@ -183,14 +167,12 @@ def findPath(startPoint,end):
 	message = planner(startPt,target)
 	path = []
 	for i in xrange(len(message.path)):
-		path = path + [Vector2D(int(message.path[i].x),int(message.path[i].y))]
+		path = path + [Vector2D(message.path[i].x,message.path[i].y)]
 	start = rospy.Time.now()
 	start = 1.0*start.secs + 1.0*start.nsecs/pow(10,9)
 	v = Velocity(path,start,startPt)
 	v.updateAngle()
 	expectedTraverseTime = v.getTime(v.GetPathLength())
-	pso = PSO(5,20,1000,1,1,0.5)
-	errorInfo = Error()
 	print("Path Planned")
 
 
@@ -208,10 +190,10 @@ if __name__ == "__main__":
 	startPt = point_2d()
 	target = point_2d()
 	print("Enter starting")
-	startPt.x = -2000
-	startPt.y = -1700
-	target.x = 1000
-	target.y = 1200
+	startPt.x = -2500
+	startPt.y = -1500
+	target.x = 2500
+	target.y = -1500
 	findPath(startPt,target)
 	rospy.Subscriber('/belief_state', BeliefState, Callback, queue_size=1000)
 	rospy.spin()
